@@ -1,0 +1,30 @@
+# --- Web API & App ---
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic-settings
+
+# --- Async Tasks & Broker ---
+celery
+redis
+
+# --- Database (SQL) ---
+sqlalchemy
+alembic
+asyncpg
+psycopg2-binary
+
+# --- AI & RAG ---
+langchain
+langgraph
+langchain-community
+langchain-groq # For cloud LLM
+langchain-ollama # For local LLM
+langchain-huggingface
+sentence-transformers
+qdrant-client
+tiktoken
+
+# --- Utils ---
+python-dotenv
+pypdf
