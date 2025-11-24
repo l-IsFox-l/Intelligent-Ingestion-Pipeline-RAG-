@@ -15,6 +15,9 @@ asyncpg
 psycopg2-binary
 
 # --- AI & RAG ---
+torch
+torchvision
+torchaudio
 langchain
 langgraph
 langchain-community
