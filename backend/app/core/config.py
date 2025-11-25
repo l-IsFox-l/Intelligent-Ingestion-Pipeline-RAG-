@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     POSTGRES_SERVER: str
     POSTGRES_PORT: int
     POSTGRES_DB: str
+    UPLOAD_DIR: str = "temp_storage" # Directory for temp files
+    REDIS_HOST: str
 
     @property
     def DATABASE_URL(self) -> str:

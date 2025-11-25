@@ -31,3 +31,4 @@ tiktoken
 # --- Utils ---
 python-dotenv
 pypdf
+aiofiles

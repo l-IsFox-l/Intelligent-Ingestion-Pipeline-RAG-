@@ -1,0 +1,56 @@
+
+services:
+  redis:
+    image: redis
+    container_name: redis_container
+    restart: always
+    ports:
+    - "6379:6379"
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ingestion_db
+    volumes:
+     - postgres_data:/var/lib/postgresql/data
+    ports:
+     - "5432:5432"
+
+  celery_worker:
+    build:
+      context: ./backend
+    container_name: celery_worker
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_SERVER: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command: celery -A app.celery_app worker --loglevel=info
+
+  backend:
+    build:
+      context: ./backend # Path to a Dockerfile
+    container_name: fastapi_backend
+    ports:
+     - "8000:8000" # localhost:8000 --> container:8000
+    volumes:
+     - ./backend:/app
+    depends_on:
+      - db
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_SERVER: db
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
