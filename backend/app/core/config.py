@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int
     POSTGRES_DB: str
     UPLOAD_DIR: str = "temp_storage" # Directory for temp files
+
     REDIS_HOST: str
+    LLM_NAME: str
+    EMBEDDINGS_MODEL_NAME: str
+    QDRANT_HOST: str
+    QDRANT_HOST: int
 
     @property
     def DATABASE_URL(self) -> str:

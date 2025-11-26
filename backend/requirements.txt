@@ -21,6 +21,8 @@ torchaudio
 langchain
 langgraph
 langchain-community
+langchain-docling
+langchain-qdrant
 langchain-groq # For cloud LLM
 langchain-ollama # For local LLM
 langchain-huggingface

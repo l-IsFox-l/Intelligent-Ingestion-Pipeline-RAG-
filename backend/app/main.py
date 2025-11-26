@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db.models.document import Document
+from app.worker.tasks import process_document_task
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True) # Creates a folder for temps files if doesn't exist
 
@@ -23,7 +24,6 @@ async def upload_file(
     db: AsyncSession = Depends(get_db)
     ):
     """Endpoint to upload a pdf file."""
-    # TODO: Write custom function to clear pdf from unuseful data, chunk, store in db and vector store (in another file)
 
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF format files allowed!")
@@ -61,7 +61,7 @@ async def upload_file(
         # if original
         new_doc = Document(
             filename=file.filename,
-            file_path=file_path,
+            filepath=file_path,
             content_hash=content_hash,
             status="pending"
         )
@@ -69,6 +69,8 @@ async def upload_file(
         db.add(new_doc)
         await db.commit()
         await db.refresh(new_doc)
+
+        process_document_task.delay(doc_id = new_doc.id)
 
         return{
             "task_id": new_doc.id,
@@ -88,3 +90,21 @@ async def check_bd(db: AsyncSession = Depends(get_db)):
         return {"status": "ok", "db_response": result.scalar()}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+    
+@app.get("/status/{task_id}")
+async def get_status(task_id: int, db: AsyncSession = Depends(get_db)):
+    """Endpoint to get the status of document processing task"""
+    query = select(Document).where(Document.id == task_id)
+    result = await db.execute(query)
+    doc = result.scalar_one_or_none()
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return {
+        "task_id": doc.id,
+        "status": doc.status,
+        "filename": doc.filename,
+        "chunks": doc.chunk_count,
+        "error": doc.error_message
+    }
