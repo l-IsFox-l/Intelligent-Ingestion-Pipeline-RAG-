@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     LLM_NAME: str
     EMBEDDINGS_MODEL_NAME: str
     QDRANT_HOST: str
-    QDRANT_HOST: int
+    QDRANT_PORT: int
 
     @property
     def DATABASE_URL(self) -> str:

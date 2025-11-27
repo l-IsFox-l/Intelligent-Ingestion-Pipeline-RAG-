@@ -10,6 +10,10 @@ from app.db.session import get_db
 from app.db.models.document import Document
 from app.worker.tasks import process_document_task
 
+import shutil
+from qdrant_client import QdrantClient
+from sqlalchemy import text
+
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True) # Creates a folder for temps files if doesn't exist
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -108,3 +112,27 @@ async def get_status(task_id: int, db: AsyncSession = Depends(get_db)):
         "chunks": doc.chunk_count,
         "error": doc.error_message
     }
+
+@app.delete("/purge")
+async def purge_data(db: AsyncSession = Depends(get_db)):
+    """Endpoint to purge all documents and vs"""
+    # temp files
+    if os.path.exists(settings.UPLOAD_DIR):
+        shutil.rmtree(settings.UPLOAD_DIR)
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+    # clear qdrant
+    try:
+        qdrant = QdrantClient(
+            host=settings.QDRANT_HOST,
+            port=settings.QDRANT_PORT,
+        )
+        qdrant.delete_collection(collection_name="documents_collection")
+    except Exception as e:
+        print(f"Error cleaning Qdrant {str(e)}")
+
+    # clear bd
+    await db.execute(text("TRUNCATE TABLE documents RESTART IDENTITY CASCADE"))
+    await db.commit()
+
+    return {"status": "Data purged!"}

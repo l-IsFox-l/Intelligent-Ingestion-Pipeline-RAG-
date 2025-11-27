@@ -1,10 +1,12 @@
 # Celery worker for RAG
 import logging
 import asyncio
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from app.core.config import settings
 from app.core.celery_app import celery_app
 from app.db.session import AsyncSessionLocal
 from app.db.models.document import Document
-from sqlalchemy import select
 from app.services.pdf_processor import process_document
 
 logging.basicConfig(level=logging.INFO)
@@ -22,34 +24,43 @@ async def run_rag_doc_processing(doc_id: int):
     
     logger.info("RAG doc processing pipeline started!")
 
-    async with AsyncSessionLocal() as db:
-        query = select(Document).where(Document.id == doc_id)
-        result = await db.execute(query)
-        doc = result.scalar_one_or_none()
+    engine = create_async_engine(settings.DATABASE_URL, echo=False)
 
-        if not doc:
-            logger.error(f"Document with id {doc_id} not found in database.")
-            return
+    TaskSessionLocal = async_sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+    )
+    try:
+        async with TaskSessionLocal() as db:
+            query = select(Document).where(Document.id == doc_id)
+            result = await db.execute(query)
+            doc = result.scalar_one_or_none()
 
-        logger.info(f"Processing document: {doc.filename}")
-        doc.status = "processing"
-        await db.commit()
+            if not doc:
+                logger.error(f"Document with id {doc_id} not found in database.")
+                return
 
-        try:
-            stats = await asyncio.to_thread(process_document, doc.filepath, doc.id)
-            
-            # If successful
-            doc.status = "completed"
-            doc.chunk_count = stats["chunk_count"]
-            doc.error_message = None
-
-            logger.info(f"Document {doc.filename} processed successfully! Chunks: {stats['chunks_count']}")
-
-        # If not successful
-        except Exception as e:
-            logger.error(f"Failed to process document {doc.filename}: {str(e)}")
-            doc.status = "failed"
-            doc.error_message = str(e)
-
-        finally:
+            logger.info(f"Processing document: {doc.filename}")
+            doc.status = "processing"
             await db.commit()
+
+            try:
+                stats = await asyncio.to_thread(process_document, doc.filepath, doc.id)
+                
+                # If successful
+                doc.status = "completed"
+                doc.chunk_count = stats["chunks_count"]
+                doc.error_message = None
+
+                logger.info(f"Document {doc.filename} processed successfully! Chunks: {stats['chunks_count']}")
+
+            # If not successful
+            except Exception as e:
+                logger.error(f"Failed to process document {doc.filename}: {str(e)}")
+                doc.status = "failed"
+                doc.error_message = str(e)
+
+            finally:
+                await db.commit()
+    finally:
+        await engine.dispose()

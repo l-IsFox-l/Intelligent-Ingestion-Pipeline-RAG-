@@ -6,6 +6,18 @@ services:
     restart: always
     ports:
     - "6379:6379"
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant_container
+    restart: always
+    environment:
+      QDRANT_HOST: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    
   db:
     image: postgres:16-alpine
     container_name: postgres_db
@@ -34,6 +46,8 @@ services:
       POSTGRES_SERVER: db
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      REDIS_HOST: redis
+      QDRANT_HOST: qdrant
     command: celery -A app.core.celery_app worker --loglevel=info
 
   backend:
@@ -50,6 +64,8 @@ services:
       - ./backend/.env
     environment:
       POSTGRES_SERVER: db
+      REDIS_HOST: redis
+      QDRANT_HOST: qdrant
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:

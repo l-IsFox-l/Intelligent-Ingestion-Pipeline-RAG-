@@ -27,7 +27,7 @@ def get_qdrant_client():
 
 
 # - process pdf for chunking:
-async def process_document(file_path: str, doc_id: int) -> dict:
+def process_document(file_path: str, doc_id: int) -> dict:
     """Function for documents processing:
     - load pdf
     - chunk and embed
@@ -57,12 +57,11 @@ async def process_document(file_path: str, doc_id: int) -> dict:
 
     embeddings = get_embeddings_model()
 
-    url = f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}"
-
     vector_store = QdrantVectorStore.from_documents(
         documents=chunks,
         embedding=embeddings,
-        url=url,
+        host=settings.QDRANT_HOST,
+        port=settings.QDRANT_PORT,
         collection_name="documents_collection",
         force_recreate=False
     )
