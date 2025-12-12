@@ -9,6 +9,6 @@ Frameworks used:
 - PostgreSQL
 - Docker
 
-
+Right now I have working backend where llm can answer based on loaded document
 
 # alembic init -t async backend/alembic

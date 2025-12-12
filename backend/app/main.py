@@ -8,13 +8,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db.models.document import Document
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.worker.tasks import process_document_task
-
+from app.services.agent import create_graph
+from langchain_core.messages import HumanMessage, ToolMessage
 import shutil
 from qdrant_client import QdrantClient
 from sqlalchemy import text
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True) # Creates a folder for temps files if doesn't exist
+
+# Initialaze graph on app start
+app_graph = create_graph()
 
 app = FastAPI(title=settings.PROJECT_NAME)
 # Endpoints
@@ -136,3 +141,39 @@ async def purge_data(db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     return {"status": "Data purged!"}
+
+# Chat endpoint
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """Chat endpoint"""
+    try:
+        input_message = HumanMessage(content=request.message)
+        
+        # Печатаем, чтобы убедиться, что сообщение есть
+        print(f"DEBUG MAIN: Sending message: {input_message.content}")
+
+        initial_state = {
+            "messages": [input_message]
+        }
+        
+        result = await app_graph.ainvoke(initial_state)
+        
+        messages = result["messages"]
+        last_message = messages[-1]
+
+        sources = []
+        for msg in reversed(messages):
+            if isinstance(msg, ToolMessage):
+                sources.append(msg.content)
+                break
+        
+        print(f"Sources: {sources}")
+
+        return {
+            "response": last_message.content,
+            "sources": sources
+            }
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
